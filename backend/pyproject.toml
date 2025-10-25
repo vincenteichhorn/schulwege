@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "backend"
+version = "0.1.0"
+description = ""
+authors = ["Vincent Eichhorn <vincent.eichhorn@student.hpi.de>"]
+readme = "README.md"
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.12"
+fastapi = "^0.120.0"
+osmnx = "^2.0.6"
+uvicorn = "^0.38.0"
+python-dotenv = "^1.1.1"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
