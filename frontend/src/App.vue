@@ -1,11 +1,18 @@
-<script setup lang="ts"></script>
+<script setup>
+import NavBar from './components/NavBar.vue'
+
+</script>
+
+<script>
+export const routes = [
+  { path: '/', component: () => import('./pages/Schulwege.vue'), name: 'Schulwege' },
+  { path: '/status', component: () => import('./pages/Status.vue'), name: 'Status' }
+]
+</script>
 
 <template>
-  <h1>You did it!</h1>
-  <p>
-    Visit <a href="https://vuejs.org/" target="_blank" rel="noopener">vuejs.org</a> to read the
-    documentation
-  </p>
+  <NavBar title="Schulkinder" :links="routes.map(route => ({ name: route.name || 'Home', href: route.path }))" />
+  <main>
+    <router-view />
+  </main>
 </template>
-
-<style scoped></style>

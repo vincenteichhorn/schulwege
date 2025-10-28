@@ -12,6 +12,11 @@ fastapi = "^0.120.0"
 osmnx = "^2.0.6"
 uvicorn = "^0.38.0"
 python-dotenv = "^1.1.1"
+aiofiles = "^25.1.0"
+tqdm = "^4.67.1"
+geopandas = "^1.1.1"
+pyrosm = "^0.6.2"
+docker = "^7.1.0"
 
 
 [build-system]
