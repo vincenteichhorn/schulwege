@@ -4,9 +4,9 @@ export $(grep -v '^#' .env | xargs)
 
 # container name should be ${NOMINATIM_BASE_CONTAINER_NAME}-region-with-dashes
 # like nominatim-europe-germany-berlin if NOMINATIM_BASE_CONTAINER_NAME=nominatim and region=europe-germany-berlin
-# the region is implicitly given in the NOMINATIM_REGION_PBF_URL like https://download.geofabrik.de/europe/germany/brandenburg-latest.osm.pbf
+# the region is implicitly given in the REGION_PBF_URL like https://download.geofabrik.de/europe/germany/brandenburg-latest.osm.pbf
 
-REGION=$(echo $NOMINATIM_REGION_PBF_URL | sed -E 's|https?://download\.geofabrik\.de/([^/]+)/([^/]+)/([^/]+)-latest\.osm\.pbf$|\1-\2-\3|' | tr ' ' '-' | tr '_' '-')
+REGION=$(echo $REGION_PBF_URL | sed -E 's|https?://download\.geofabrik\.de/([^/]+)/([^/]+)/([^/]+)-latest\.osm\.pbf$|\1-\2-\3|' | tr ' ' '-' | tr '_' '-')
 CONTAINER_NAME="${NOMINATIM_BASE_CONTAINER_NAME}-${REGION}"
 
 echo "Starting Nominatim Service for region: $REGION"
@@ -41,10 +41,10 @@ else
         -v "$NOMINATIM_DATA_VOLUME:/var/lib/postgresql/12/main" \
         -v "$NOMINATIM_SETTINGS_VOLUME:/etc/nominatim" \
         -v "$NOMINATIM_FLATNODE_VOLUME:/var/lib/nominatim/flatnode" \
-        -e "PBF_URL=$NOMINATIM_REGION_PBF_URL" \
+        -e "PBF_URL=$REGION_PBF_URL" \
         -e "NOMINATIM_PASSWORD=$NOMINATIM_PASSWORD" \
         "$NOMINATIM_IMAGE_NAME"
-    echo "Nominatim server inside container $CONTAINER_NAME is starting and importing data from $NOMINATIM_REGION_PBF_URL. This may take a while (30min+) depending on the size of the data."
+    echo "Nominatim server inside container $CONTAINER_NAME is starting and importing data from $REGION_PBF_URL. This may take a while (30min+) depending on the size of the data."
 fi
 
 echo "Waiting for Nominatim service to be fully started..."

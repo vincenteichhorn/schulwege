@@ -9,7 +9,7 @@ def navbar(routes: List[Dict], router: StreamlitRouter):
         st.title("Schulwege")
 
         for route in routes:
-            if st.button(route["name"], width=300):
+            if route["show"] and st.button(route["name"], width=300):
                 default_args = {}
                 if "default_args" in route:
                     default_args = route["default_args"]
