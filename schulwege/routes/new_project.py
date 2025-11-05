@@ -6,7 +6,7 @@ from streamlit_router import StreamlitRouter
 import folium
 from streamlit_folium import st_folium
 
-from schulkinder.maps.nominatim import (
+from schulwege.maps.nominatim import (
     get_locations_from_addresses,
     get_nominatim_status,
     search_locations,

@@ -7,7 +7,7 @@ from streamlit_router import StreamlitRouter
 from streamlit_folium import st_folium
 
 
-from schulkinder.db import (
+from schulwege.db import (
     compute_segments,
     delete_project,
     get_all_projects,
@@ -16,7 +16,7 @@ from schulkinder.db import (
 )
 
 
-from schulkinder.models import Project, Segment
+from schulwege.models import Project, Segment
 
 COLORS = [
     "#1f77b4",

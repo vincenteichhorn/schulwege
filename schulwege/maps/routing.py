@@ -8,7 +8,7 @@ import osmnx as ox
 from shapely import MultiPoint, length
 from math import radians, sin, cos, sqrt, atan2
 
-from schulkinder.models import Location
+from schulwege.models import Location
 
 
 def init_osmnx():

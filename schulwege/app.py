@@ -5,7 +5,7 @@ from streamlit_router import StreamlitRouter
 
 from components.navbar import navbar
 from db import init_db, get_engine
-from schulkinder.maps.routing import init_osmnx
+from schulwege.maps.routing import init_osmnx
 
 ROUTES = [
     {

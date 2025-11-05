@@ -6,8 +6,8 @@ from requests import session
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, scoped_session
 from streamlit import cache_resource
-from schulkinder.maps.routing import compute_routes, filter_radius_locations
-from schulkinder.models import Base, Location, Project, Segment
+from schulwege.maps.routing import compute_routes, filter_radius_locations
+from schulwege.models import Base, Location, Project, Segment
 
 
 def get_engine():

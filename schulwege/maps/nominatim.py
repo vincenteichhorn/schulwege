@@ -2,7 +2,7 @@ import os
 from typing import Dict, List, Tuple
 
 import requests
-from schulkinder.models import Location
+from schulwege.models import Location
 
 
 def new_location(data: Dict) -> Location:

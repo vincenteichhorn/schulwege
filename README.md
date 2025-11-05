@@ -1,11 +1,11 @@
 # Schulkinder Projekt
 
 ## Start Up
-1. Install Docker and Docker Compose on your machine.
+1. Install Docker on your machine.
 2. Clone the repository and navigate to the project directory:
 ```bash
-git clone https://github.com/vincenteichhorn/schulkinder.git
-cd schulkinder
+git clone https://github.com/vincenteichhorn/schulwege.git
+cd schulwege
 ```
 3. Start the backend and frontend services using Docker Compose:
 ```bash
