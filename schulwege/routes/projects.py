@@ -120,7 +120,7 @@ def projects_list(router: StreamlitRouter):
                 delete_project_dialog(project)
         with cols[5]:
             combine_selected_copy[project.id] = st.checkbox(
-                "",
+                " ",
                 key=f"combine_{project.id}",
                 value=st.session_state["combine_selected"].get(project.id, False),
             )

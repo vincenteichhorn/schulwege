@@ -1,7 +1,7 @@
 #!/bin/bash
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-export $(grep -v '^#' "$SCRIPT_DIR/.env" | xargs)
+HOME_DIR="$SCRIPT_DIR/.."
+export $(grep -v '^#' "$HOME_DIR/.env" | xargs)
 
 REGION=$(echo $REGION_PBF_URL | sed -E 's|https?://download\.geofabrik\.de/([^/]+)/([^/]+)/([^/]+)-latest\.osm\.pbf$|\1-\2-\3|' | tr ' ' '-' | tr '_' '-')
 CONTAINER_NAME="${NOMINATIM_BASE_CONTAINER_NAME}-${REGION}"

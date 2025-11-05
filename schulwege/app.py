@@ -1,13 +1,21 @@
-from routes.new_project import new_project
-from routes.projects import combine_projects, projects
+import sys
+from schulwege.routes.new_project import new_project
+from schulwege.routes.projects import combine_projects, projects
 import streamlit as st
 from streamlit_router import StreamlitRouter
+import streamlit.web.cli as stcli
 
-from components.navbar import navbar
-from db import init_db, get_engine
+from schulwege.components.navbar import navbar
+from schulwege.db import init_db, get_engine
 from schulwege.maps.routing import init_osmnx
 
 ROUTES = [
+    {
+        "endpoint": "/",
+        "view": lambda router: router.redirect(*router.build("projects", {"id": "all"})),
+        "name": "Home",
+        "show": True,
+    },
     {
         "endpoint": "/projects/<id>",
         "view": projects,

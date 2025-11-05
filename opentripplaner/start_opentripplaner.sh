@@ -1,7 +1,8 @@
 #!/bin/bash
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-export $(grep -v '^#' "$SCRIPT_DIR/.env" | xargs)
+HOME_DIR="$SCRIPT_DIR/.."
+export $(grep -v '^#' "$HOME_DIR/.env" | xargs)
 
 # Derive region name from the PBF URL (like "europe-germany-brandenburg")
 REGION=$(echo $REGION_PBF_URL | sed -E 's|https?://download\.geofabrik\.de/([^/]+)/([^/]+)/([^/]+)-latest\.osm\.pbf$|\1-\2-\3|' | tr ' ' '-' | tr '_' '-')
@@ -24,10 +25,10 @@ on_interrupt() {
 }
 trap on_interrupt INT TERM
 
-mkdir -p "$SCRIPT_DIR/$OTP_DATA_VOLUME"
+mkdir -p "$HOME_DIR/$OTP_DATA_VOLUME"
 
 # Download OSM PBF if not exists
-OSM_FILE="$SCRIPT_DIR/$OTP_DATA_VOLUME/osm.pbf"
+OSM_FILE="$HOME_DIR/$OTP_DATA_VOLUME/osm.pbf"
 if [ ! -f "$OSM_FILE" ]; then
     echo "Downloading OSM PBF for $REGION..."
     curl -L "$REGION_PBF_URL" -o "$OSM_FILE"
@@ -36,7 +37,7 @@ else
 fi
 
 # Download GTFS feed if not exists
-GTFS_FILE="$SCRIPT_DIR/$OTP_DATA_VOLUME/gtfs.zip"
+GTFS_FILE="$HOME_DIR/$OTP_DATA_VOLUME/gtfs.zip"
 if [ ! -f "$GTFS_FILE" ]; then
     echo "Downloading GTFS feed..."
     curl -L "$OTP_GTFS_URL" -o "$GTFS_FILE"
@@ -46,31 +47,31 @@ fi
 
 
 # Check if container exists
-if [ ! -f "$SCRIPT_DIR/$OTP_DATA_VOLUME/graph.obj" ]; then
+if [ ! -f "$HOME_DIR/$OTP_DATA_VOLUME/graph.obj" ]; then
     echo "Creating and starting new container $CONTAINER_NAME..."
     STARTED_BY_SCRIPT=1
     
     echo "Building OTP graph from OSM and GTFS data..."
         docker run --rm \
             -e JAVA_TOOL_OPTIONS='-Xmx8g' \
-            -v "$SCRIPT_DIR/$OTP_DATA_VOLUME:/var/opentripplanner" \
+            -v "$HOME_DIR/$OTP_DATA_VOLUME:/var/opentripplanner" \
             "$OTP_IMAGE_NAME" --build --save
 
     docker run -d --rm \
         --name "$CONTAINER_NAME" \
         -e JAVA_TOOL_OPTIONS='-Xmx8g' \
         -p "$OTP_HOST_PORT:$OTP_CONTAINER_PORT" \
-        -v "$SCRIPT_DIR/$OTP_DATA_VOLUME:/var/opentripplanner" \
+        -v "$HOME_DIR/$OTP_DATA_VOLUME:/var/opentripplanner" \
         "$OTP_IMAGE_NAME" --load --serve
 else
 
-    echo "Graph $CONTAINER_NAME exists. Starting existing container..."
+    echo "Graph $CONTAINER_NAME exists. Using existing graph for new container..."
     STARTED_BY_SCRIPT=1
     docker run -d --rm \
         --name "$CONTAINER_NAME" \
         -e JAVA_TOOL_OPTIONS='-Xmx8g' \
         -p "$OTP_HOST_PORT:$OTP_CONTAINER_PORT" \
-        -v "$SCRIPT_DIR/$OTP_DATA_VOLUME:/var/opentripplanner" \
+        -v "$HOME_DIR/$OTP_DATA_VOLUME:/var/opentripplanner" \
         "$OTP_IMAGE_NAME" --load --serve
 
     echo "OTP container $CONTAINER_NAME is starting..."

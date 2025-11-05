@@ -1,7 +1,9 @@
 #!/bin/bash
 
-export $(grep -v '^#' .env | xargs)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HOME_DIR="$SCRIPT_DIR/.."
 
+export $(grep -v '^#' "$HOME_DIR/.env" | xargs)
 # container name should be ${NOMINATIM_BASE_CONTAINER_NAME}-region-with-dashes
 # like nominatim-europe-germany-berlin if NOMINATIM_BASE_CONTAINER_NAME=nominatim and region=europe-germany-berlin
 # the region is implicitly given in the REGION_PBF_URL like https://download.geofabrik.de/europe/germany/brandenburg-latest.osm.pbf

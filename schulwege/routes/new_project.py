@@ -11,7 +11,7 @@ from schulwege.maps.nominatim import (
     get_nominatim_status,
     search_locations,
 )
-from db import create_project, get_session
+from schulwege.db import create_project, get_session
 
 
 def _search_and_update_locations(query: str):
