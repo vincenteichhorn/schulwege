@@ -4,7 +4,7 @@ Durch die Allgemeine Verwaltungsvorschrift zur Straßenverkehrs-Ordnung (VwV-StV
 Da die Adressen der Schüler:innen sensible personenbezogene Daten sind, verwendet dieses Projekt keine externen API-Dienste. Stattdessen werden alle Berechnungen lokal durchgeführt, um die Privatsphäre der Schüler:innen zu schützen. Importierte Adressdaten werden in einer lokalen Datenbank gespeichert und verarbeitet.
 
 ## Routing
-Das Projekt verwendet um die Schulwege zu berechnen Routing mit kürzesten Wegen basierend auf OpenStreetMap-Daten für Lauf- und Fahrradwege. Für ÖPNV-Routing wird das Open-Source-Tool OpenTripPlanner verwendet, das lokal betrieben wird. 
+Das Projekt verwendet um die Schulwege zu berechnen Routing mit kürzesten Wegen basierend auf OpenStreetMap-Daten für Lauf- und Fahrradwege. Für ÖPNV-Routing wird das Open-Source-Tool OpenTripPlanner verwendet, das lokal betrieben wird. Für jede Modalität (Laufen, Fahrrad, ÖPNV) wird die kürzeste Route von der Wohnadresse der Schüler:in zur Schule berechnet, wobei nur Adressen innerhalb eines konfigurierbaren Radius berücksichtigt werden. Somit kann eine realistische Schulwegplanung durchgeführt werden. 
 
 ## Gebiete
 Entsprechend sind PBF-Daten und GTFS-Daten für das jeweilige Gebiet erforderlich. Diese können in der `.env` Datei konfiguriert werden. Beispielkonfigurationen für verschiedene Gebiete sind unten aufgeführt.
