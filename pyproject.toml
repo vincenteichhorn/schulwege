@@ -1,9 +1,9 @@
 [project]
-name = "schulkinder"
+name = "schulwege"
 version = "0.1.0"
 description = ""
 authors = [
-    {name = "Vincent Eichhorn",email = "vincent.eichhorn@student.hpi.de"}
+    {name = "Vincent Eichhorn",email = "v.eichhorn@posteo.de"}
 ]
 readme = "README.md"
 requires-python = ">=3.12"
