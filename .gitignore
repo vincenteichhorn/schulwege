@@ -1,3 +1,5 @@
 *.code-workspace
 data/
 .devdbrc
+notebooks/.ipynb_checkpoints/
+notebooks/cache/
