@@ -1,0 +1,87 @@
+services:
+  nominatim:
+    image: mediagis/nominatim:5.2
+    container_name: schulwege-nominatim
+    profiles: [serve]
+    ports:
+      - "${NOMINATIM_HOST_PORT:-8080}:8080"
+    environment:
+      PBF_URL: ${REGION_PBF_URL:-https://download.geofabrik.de/europe/germany/brandenburg-latest.osm.pbf}
+      NOMINATIM_PASSWORD: ${NOMINATIM_PASSWORD:-supersecret}
+    volumes:
+      - ${NOMINATIM_DATA_VOLUME:-./data/nominatim/data}:/var/lib/postgresql/16/main
+      - ${NOMINATIM_SETTINGS_VOLUME:-./data/nominatim/settings}:/etc/nominatim
+      - ${NOMINATIM_FLATNODE_VOLUME:-./data/nominatim/flatnode}:/nominatim/flatnode
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30m
+
+  otp-builder:
+    image: opentripplanner/opentripplanner:latest
+    container_name: schulwege-otp-builder
+    profiles: [build]
+    environment:
+      JAVA_TOOL_OPTIONS: "-Xmx8g"
+      REGION_PBF_URL: ${REGION_PBF_URL}
+      OTP_GTFS_URL: ${OTP_GTFS_URL}
+    volumes:
+      - ${OTP_DATA_VOLUME:-./data/opentripplanner}:/var/opentripplanner
+    command: ["--build", "--save"]
+    restart: "no"
+
+  otp-server:
+    image: opentripplanner/opentripplanner:latest
+    container_name: schulwege-otp-server
+    profiles: [serve]
+    environment:
+      JAVA_TOOL_OPTIONS: "-Xmx8g"
+    command: ["--load", "--serve"]
+    ports:
+      - "${OTP_HOST_PORT:-9080}:8080"
+    volumes:
+      - ${OTP_DATA_VOLUME:-./data/opentripplanner}:/var/opentripplanner
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--delete-after", "http://localhost:8080"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 1m
+
+  schulwege-frontend:
+    build:
+      context: ./schulwege
+      dockerfile: Dockerfile
+      args:
+        FRONTEND_PORT: ${FRONTEND_PORT:-5173}
+    container_name: schulwege-frontend
+    profiles: [serve]
+    ports:
+      - "${FRONTEND_PORT:-5173}:${FRONTEND_PORT:-5173}"
+    environment:
+      SQL_DATABASE_URL: ${SQL_DATABASE_URL}
+      CACHE_DIR: ${CACHE_DIR}
+      OTP_SERVER_URL: http://otp-server:${OTP_CONTAINER_PORT:-9080}
+      NOMINATIM_SERVER_URL: http://nominatim:${NOMINATIM_CONTAINER_PORT:-8080}
+    volumes:
+      - ${FRONTEND_DATA_VOLUME:-./data}:/data
+    depends_on:
+      nominatim:
+        condition: service_healthy
+      otp-server:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${FRONTEND_PORT:-5173}/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+volumes:
+  nominatim-data:
+  nominatim-settings:
+  nominatim-flatnode:

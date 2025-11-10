@@ -75,6 +75,23 @@ def compute_segments(
     return all_segments
 
 
+def update_project_segments(
+    session, project: Project, config: List[Dict], notif_callback=lambda x: None
+):
+    segments = compute_segments(
+        project.main_location,
+        project.locations,
+        config=config,
+        notif_callback=notif_callback,
+    )
+    session.query(Segment).filter(Segment.project_id == project.id).delete()
+    for segment in segments:
+        segment.project_id = project.id
+        session.add(segment)
+    project.config = config
+    session.commit()
+
+
 def create_project(
     session,
     main_location: Location,
@@ -111,9 +128,4 @@ def get_all_projects(session) -> List[Project]:
 def update_project_config(session, project: Project, config: List[Dict]):
     project.config = config.copy()
     print(project.config)
-    session.commit()
-
-
-def delete_project(session, project: Project):
-    session.delete(project)
     session.commit()

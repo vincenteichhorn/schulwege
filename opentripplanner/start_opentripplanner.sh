@@ -52,15 +52,15 @@ if [ ! -f "$HOME_DIR/$OTP_DATA_VOLUME/graph.obj" ]; then
     STARTED_BY_SCRIPT=1
     
     echo "Building OTP graph from OSM and GTFS data..."
-        docker run --rm \
-            -e JAVA_TOOL_OPTIONS='-Xmx8g' \
-            -v "$HOME_DIR/$OTP_DATA_VOLUME:/var/opentripplanner" \
-            "$OTP_IMAGE_NAME" --build --save
+    docker run --rm \
+        -e JAVA_TOOL_OPTIONS='-Xmx8g' \
+        -v "$HOME_DIR/$OTP_DATA_VOLUME:/var/opentripplanner" \
+        "$OTP_IMAGE_NAME" --build --save
 
     docker run -d --rm \
         --name "$CONTAINER_NAME" \
         -e JAVA_TOOL_OPTIONS='-Xmx8g' \
-        -p "$OTP_HOST_PORT:$OTP_CONTAINER_PORT" \
+        -p "$OTP_HOST_PORT:8080" \
         -v "$HOME_DIR/$OTP_DATA_VOLUME:/var/opentripplanner" \
         "$OTP_IMAGE_NAME" --load --serve
 else
@@ -70,7 +70,7 @@ else
     docker run -d --rm \
         --name "$CONTAINER_NAME" \
         -e JAVA_TOOL_OPTIONS='-Xmx8g' \
-        -p "$OTP_HOST_PORT:$OTP_CONTAINER_PORT" \
+        -p "$OTP_HOST_PORT:8080" \
         -v "$HOME_DIR/$OTP_DATA_VOLUME:/var/opentripplanner" \
         "$OTP_IMAGE_NAME" --load --serve
 

@@ -39,7 +39,7 @@ else
     STARTED_BY_SCRIPT=1
     docker run -d \
         --name "$CONTAINER_NAME" \
-        -p "$NOMINATIM_HOST_PORT:$NOMINATIM_CONTAINER_PORT" \
+        -p "$NOMINATIM_HOST_PORT:8080" \
         -v "$NOMINATIM_DATA_VOLUME:/var/lib/postgresql/12/main" \
         -v "$NOMINATIM_SETTINGS_VOLUME:/etc/nominatim" \
         -v "$NOMINATIM_FLATNODE_VOLUME:/var/lib/nominatim/flatnode" \

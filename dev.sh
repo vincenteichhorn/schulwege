@@ -16,7 +16,7 @@ on_interrupt() {
 
     echo "Stopping OpenTripPlanner Service..."
     if [ "$OTP_STARTED_BY_SCRIPT" -eq 1 ]; then
-        "$SCRIPT_DIR/opentripplaner/stop_opentripplaner.sh"
+        "$SCRIPT_DIR/opentripplanner/stop_opentripplanner.sh"
     fi
 
     exit 1
@@ -27,7 +27,7 @@ trap on_interrupt INT TERM
 if [ $? -eq 0 ]; then
     NOMINATIM_STARTED_BY_SCRIPT=1
 fi
-"$SCRIPT_DIR/opentripplaner/start_opentripplaner.sh"
+"$SCRIPT_DIR/opentripplanner/start_opentripplanner.sh"
 if [ $? -eq 0 ]; then
     OTP_STARTED_BY_SCRIPT=1
 fi

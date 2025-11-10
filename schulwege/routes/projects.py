@@ -7,12 +7,13 @@ from streamlit_router import StreamlitRouter
 from streamlit_folium import st_folium
 
 
+from schulwege.components.project_components import config_editor, delete_project_dialog
 from schulwege.db import (
     compute_segments,
-    delete_project,
     get_all_projects,
     get_project_by_id,
     get_session,
+    update_project_segments,
 )
 
 
@@ -51,18 +52,76 @@ MODALITY_MAPPING = {
 }
 
 
-@st.dialog("Projekt löschen")
-def delete_project_dialog(project: Project):
-    st.warning(
-        f"Sind Sie sicher, dass Sie das Projekt für "
-        f"{project.main_location.name if project.main_location.name else project.main_location.to_string()} löschen möchten?"
+def compute_feature_groups(projects: Union[List[Project], Project], frequency: int):
+    if isinstance(projects, Project):
+        projects = [projects]
+    all_locations = []
+    all_segements = []
+    for project in projects:
+        all_locations.extend(project.locations)
+        all_segements.extend(project.segments)
+
+    modalities = sorted(
+        set(seg.modality for seg in all_segements),
+        key=lambda x: list(MODALITY_MAPPING.keys()).index(x),
     )
-    confirm = st.button("Projekt löschen")
-    if confirm:
-        session = get_session()
-        delete_project(session, project)
-        st.success("Projekt gelöscht. Bitte Seite neu laden.")
-        st.rerun()
+    fgs = {
+        modality: folium.FeatureGroup(name=MODALITY_MAPPING[modality]) for modality in modalities
+    }
+    fgs.update({"adressen": folium.FeatureGroup(name="Adressen")})
+    fgs_colors = {modality: COLORS[i % len(COLORS)] for i, modality in enumerate(modalities)}
+    fgs_colors["adressen"] = "gray"
+    for loc in all_locations:
+        folium.Marker(
+            location=[loc.lat, loc.lon],
+            icon=folium.Icon(color=fgs_colors["adressen"], icon="user", prefix="fa"),
+        ).add_to(fgs["adressen"])
+    dedup_dict = {}
+    for seg in all_segements:
+        key = (seg.lat_from, seg.lon_from, seg.lat_to, seg.lon_to, seg.modality)
+        if key in dedup_dict:
+            dedup_dict[key].frequency += seg.frequency
+        else:
+            dedup_dict[key] = seg
+    all_segements = list(dedup_dict.values())
+    for seg in all_segements:
+        if seg.frequency >= frequency:
+            folium.PolyLine(
+                [(seg.lat_from, seg.lon_from), (seg.lat_to, seg.lon_to)],
+                color=fgs_colors[seg.modality],
+                weight=5,
+                opacity=0.8,
+            ).add_to(fgs[seg.modality])
+    return fgs, modalities, fgs_colors
+
+
+def get_poi_map(projects: Union[List[Project], Project]):
+    if isinstance(projects, Project):
+        projects = [projects]
+    center_location_lat = sum(p.main_location.lat for p in projects) / len(projects)
+    center_location_lon = sum(p.main_location.lon for p in projects) / len(projects)
+    map = folium.Map(
+        location=[center_location_lat, center_location_lon],
+        zoom_start=15,
+    )
+    for project in projects:
+        folium.Marker(
+            location=[project.main_location.lat, project.main_location.lon],
+            icon=folium.Icon(color="red", icon="school", prefix="fa"),
+        ).add_to(map)
+    return map
+
+
+def span_legend(fgs_colors, modalities):
+    st.markdown(
+        "".join(
+            [
+                f"<span style='background-color: {fgs_colors[modality]}; padding: 5px; margin-right: 5px; color: white; border-radius: 3px;'>{MODALITY_MAPPING[modality]}</span>"
+                for modality in modalities
+            ]
+        ),
+        unsafe_allow_html=True,
+    )
 
 
 def projects_list(router: StreamlitRouter):
@@ -134,16 +193,19 @@ def projects_list(router: StreamlitRouter):
 def project_detail(router: StreamlitRouter, id: Union[str, int]):
     # --- session state setup ---
     if "session" in st.session_state and st.session_state["session"] != id:
-        for key in [
-            "current_frequency",
-        ]:
-            if key in st.session_state:
-                del st.session_state[key]
+        del st.session_state["current_frequency"]
+        del st.session_state["feature_groups"]
+        del st.session_state["fgs_colors"]
+        del st.session_state["modalities"]
     st.session_state["session"] = id
     if "current_frequency" not in st.session_state:
         st.session_state["current_frequency"] = None
     if "feature_groups" not in st.session_state:
         st.session_state["feature_groups"] = None
+    if "fgs_colors" not in st.session_state:
+        st.session_state["fgs_colors"] = None
+    if "modalities" not in st.session_state:
+        st.session_state["modalities"] = None
 
     session = get_session()
     project = get_project_by_id(session, id)
@@ -151,67 +213,29 @@ def project_detail(router: StreamlitRouter, id: Union[str, int]):
         st.error("Projekt nicht gefunden.")
         return
 
-    school_location = project.main_location
-    created_at = project.created_at
-    locations = project.locations
-    segments = project.segments
-    config = pd.DataFrame(project.config)
-
-    modalities = sorted(
-        set(seg.modality for seg in segments),
-        key=lambda x: list(MODALITY_MAPPING.keys()).index(x),
-    )
-    fgs = {
-        modality: folium.FeatureGroup(name=MODALITY_MAPPING[modality]) for modality in modalities
-    }
-    fgs.update({"adressen": folium.FeatureGroup(name="Adressen")})
-    fgs_colors = {modality: COLORS[i % len(COLORS)] for i, modality in enumerate(modalities)}
-    fgs_colors["adressen"] = "gray"
-    for loc in locations:
-        folium.Marker(
-            location=[loc.lat, loc.lon],
-            icon=folium.Icon(color=fgs_colors["adressen"], icon="user", prefix="fa"),
-        ).add_to(fgs["adressen"])
-
-    st.title(f"{school_location.name if school_location.name else school_location.to_string()}")
+    # add button to navigate back to all projects
     cols = st.columns([1, 2])
-    cols[0].info(f"**Erstellt am:** {created_at.strftime('%d.%m.%Y %H:%M')}")
-    cols[0].info(f"**Anzahl der Adressen von Schüler:innen:** {len(locations)}")
 
-    # --- Routes computation ---
+    if cols[0].button("← Zurück zu allen Projekten", type="tertiary"):
+        router.redirect(*router.build("projects", {"id": "all"}))
+    cols[0].markdown(
+        f"## {project.main_location.name if project.main_location.name else project.main_location.to_string()}"
+    )
+    cols[0].info(f"**Erstellt am:** {project.created_at.strftime('%d.%m.%Y %H:%M')}")
+    cols[0].info(f"**Anzahl der Adressen von Schüler:innen:** {len(project.locations)}")
+
+    # --- Routes recomputation ---
     expander = cols[0].expander("Schulwege konfigurieren")
     with expander:
-        config_beatufied = config.copy()
-        config_beatufied["modality"] = config_beatufied["modality"].map(MODALITY_MAPPING)
-        edited_config = st.data_editor(
-            config_beatufied,
-            hide_index=True,
-            column_config={
-                "modality": st.column_config.TextColumn("Verkehrsmittel", disabled=True),
-                "radius": st.column_config.NumberColumn(
-                    "Radius (m)",
-                    min_value=0,
-                    help="Radius um den Schulstandort, in dem Adressen berücksichtigt werden (None/Leer = kein Limit).",
-                ),
-            },
-        )
-        edited_config["modality"] = edited_config["modality"].map(
-            {v: k for k, v in MODALITY_MAPPING.items()}
-        )
+        edited_config = config_editor(project, MODALITY_MAPPING)
         if st.button("Schulwege neu berechnen"):
             with st.status("Berechne Schulwege...") as status:
-                segments = compute_segments(
-                    school_location,
-                    locations,
-                    config=edited_config.to_dict(orient="records"),
+                update_project_segments(
+                    session,
+                    project,
+                    config=edited_config,
                     notif_callback=lambda msg: status.update(label=msg, state="running"),
                 )
-                session.query(Segment).filter(Segment.project_id == project.id).delete()
-                for segment in segments:
-                    segment.project_id = project.id
-                    session.add(segment)
-                project.config = edited_config.to_dict(orient="records")
-                session.commit()
                 st.session_state["feature_groups"] = None
                 status.update(label="Berechnung abgeschlossen", state="complete")
             st.rerun()
@@ -220,8 +244,8 @@ def project_detail(router: StreamlitRouter, id: Union[str, int]):
     frequency = cols[0].slider(
         "Hochfrequentierte Schulwege hervorheben",
         min_value=1,
-        max_value=len(locations),
-        value=min(len(locations), 5),
+        max_value=len(project.locations),
+        value=min(len(project.locations), 5),
         help="Wie viele Schüler:innen müssen denselben Weg gehen, damit er hervorgehoben wird.",
     )
 
@@ -231,27 +255,14 @@ def project_detail(router: StreamlitRouter, id: Union[str, int]):
         or st.session_state["feature_groups"] is None
     ):
         st.session_state["current_frequency"] = frequency
-
-        for seg in segments:
-            if seg.frequency >= frequency:
-                folium.PolyLine(
-                    [(seg.lat_from, seg.lon_from), (seg.lat_to, seg.lon_to)],
-                    color=fgs_colors[seg.modality],
-                    weight=5,
-                    opacity=0.8,
-                ).add_to(fgs[seg.modality])
-        st.session_state["feature_groups"] = list(fgs.values())
+        feature_groups, modalities, fgs_colors = compute_feature_groups(project, frequency)
+        st.session_state["modalities"] = modalities
+        st.session_state["fgs_colors"] = fgs_colors
+        st.session_state["feature_groups"] = list(feature_groups.values())
 
     # --- Display map ---
     with cols[1]:
-        map = folium.Map(
-            location=[school_location.lat, school_location.lon],
-            zoom_start=15,
-        )
-        folium.Marker(
-            location=[school_location.lat, school_location.lon],
-            icon=folium.Icon(color="red", icon="school", prefix="fa"),
-        ).add_to(map)
+        map = get_poi_map(project)
         layer_control = folium.LayerControl(collapsed=False)
         Draw(export=True).add_to(map)
 
@@ -261,75 +272,51 @@ def project_detail(router: StreamlitRouter, id: Union[str, int]):
             layer_control=layer_control,
             key="map",
             width=None,
-            height=700,
+            height=800,
             returned_objects=[],
         )
-        st.markdown(
-            "".join(
-                [
-                    f"<span style='background-color: {fgs_colors[modality]}; padding: 5px; margin-right: 5px; color: white; border-radius: 3px;'>{MODALITY_MAPPING[modality]}</span>"
-                    for modality in modalities + ["adressen"]
-                ]
-            ),
-            unsafe_allow_html=True,
-        )
+        span_legend(st.session_state["fgs_colors"], st.session_state["modalities"])
 
 
 def combine_projects(router: StreamlitRouter, ids: str):
 
     # --- session state setup ---
     if "session" in st.session_state and st.session_state["session"] != ids:
-        for key in [
-            "current_frequency",
-        ]:
-            if key in st.session_state:
-                del st.session_state[key]
+        del st.session_state["current_frequency"]
+        del st.session_state["feature_groups"]
+        del st.session_state["fgs_colors"]
+        del st.session_state["modalities"]
     st.session_state["session"] = ids
     if "current_frequency" not in st.session_state:
         st.session_state["current_frequency"] = None
     if "feature_groups" not in st.session_state:
         st.session_state["feature_groups"] = None
+    if "fgs_colors" not in st.session_state:
+        st.session_state["fgs_colors"] = None
+    if "modalities" not in st.session_state:
+        st.session_state["modalities"] = None
 
     session = get_session()
 
-    st.title("Kombinierte Projekte")
+    cols = st.columns([1, 2])
+    if cols[0].button("← Zurück zu allen Projekten", type="tertiary"):
+        router.redirect(*router.build("projects", {"id": "all"}))
+    cols[0].markdown("## Kombinierte Projekte")
     ids = [int(i) for i in ids.split(",") if i.isdigit()]
     projects = [get_project_by_id(session, id) for id in ids]
     projects = [project for project in projects if project is not None]
     if not projects:
-        st.warning("Keine gültigen Projekte gefunden.")
+        cols[0].warning("Keine gültigen Projekte gefunden.")
         return
-    cols = st.columns([1, 2])
-
     for project in projects:
-        with cols[0]:
-            st.info(
-                f"**Schule:** {project.main_location.name if project.main_location.name else project.main_location.to_string()}\n\n"
-                f"**Erstellt am:** {project.created_at.strftime('%d.%m.%Y %H:%M')}\n\n"
-                f"**Anzahl Adressen:** {len(project.locations)}"
-            )
+        cols[0].info(
+            f"**{project.main_location.name if project.main_location.name else project.main_location.to_string()}** - Erstellt am {project.created_at.strftime('%d.%m.%Y %H:%M')} - {len(project.locations)} Adressen"
+        )
 
-    all_segments = []
+    # --- Slider for frequency ---
     all_locations = []
     for project in projects:
-        all_segments.extend(project.segments)
         all_locations.extend(project.locations)
-
-    modalities = sorted(
-        set(seg.modality for seg in all_segments),
-        key=lambda x: list(MODALITY_MAPPING.keys()).index(x),
-    )
-    fgs = {mod: folium.FeatureGroup(name=MODALITY_MAPPING[mod]) for mod in modalities}
-    fgs.update({"adressen": folium.FeatureGroup(name="Adressen")})
-    fgs_colors = {mod: COLORS[i % len(COLORS)] for i, mod in enumerate(modalities)}
-    fgs_colors["adressen"] = "gray"
-
-    for loc in all_locations:
-        folium.Marker(
-            location=[loc.lat, loc.lon],
-            icon=folium.Icon(color=fgs_colors["adressen"], icon="user", prefix="fa"),
-        ).add_to(fgs["adressen"])
-
     frequency = cols[0].slider(
         "Hochfrequentierte Schulwege hervorheben",
         min_value=1,
@@ -345,30 +332,16 @@ def combine_projects(router: StreamlitRouter, ids: str):
     ):
         st.session_state["current_frequency"] = frequency
 
-        for seg in all_segments:
-            if seg.frequency >= frequency:
-                folium.PolyLine(
-                    [(seg.lat_from, seg.lon_from), (seg.lat_to, seg.lon_to)],
-                    color=fgs_colors[seg.modality],
-                    weight=5,
-                    opacity=0.8,
-                ).add_to(fgs[seg.modality])
-        st.session_state["feature_groups"] = list(fgs.values())
+        feature_groups, modalities, fgs_colors = compute_feature_groups(projects, frequency)
+        st.session_state["modalities"] = modalities
+        st.session_state["fgs_colors"] = fgs_colors
+        st.session_state["feature_groups"] = list(feature_groups.values())
 
     # --- Display map ---
     with cols[1]:
-        map = folium.Map(
-            location=[projects[0].main_location.lat, projects[0].main_location.lon],
-            zoom_start=13,
-        )
+        map = get_poi_map(projects)
         layer_control = folium.LayerControl(collapsed=False)
         Draw(export=True).add_to(map)
-
-        for project in projects:
-            folium.Marker(
-                location=[project.main_location.lat, project.main_location.lon],
-                icon=folium.Icon(color="red", icon="school", prefix="fa"),
-            ).add_to(map)
 
         st_folium(
             map,
@@ -376,18 +349,10 @@ def combine_projects(router: StreamlitRouter, ids: str):
             layer_control=layer_control,
             key="map_combined",
             width=None,
-            height=700,
+            height=800,
             returned_objects=[],
         )
-        st.markdown(
-            "".join(
-                [
-                    f"<span style='background-color: {fgs_colors[modality]}; padding: 5px; margin-right: 5px; color: white; border-radius: 3px;'>{MODALITY_MAPPING[modality]}</span>"
-                    for modality in modalities
-                ]
-            ),
-            unsafe_allow_html=True,
-        )
+        span_legend(st.session_state["fgs_colors"], st.session_state["modalities"])
 
 
 def projects(router: StreamlitRouter, id: Union[str, int]):
