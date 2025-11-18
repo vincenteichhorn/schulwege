@@ -1,0 +1,59 @@
+services:
+  nominatim:
+    image: mediagis/nominatim:5.2
+    container_name: schulwege-nominatim
+    profiles: [serve, build]
+    ports:
+      - "${NOMINATIM_HOST_PORT:-8080}:8080"
+    environment:
+      PBF_URL: ${REGION_PBF_URL:-https://download.geofabrik.de/europe/germany/brandenburg-latest.osm.pbf}
+      NOMINATIM_PASSWORD: ${NOMINATIM_PASSWORD:-supersecret}
+    volumes:
+      - ${NOMINATIM_DATA_VOLUME:-./data/nominatim/data}:/var/lib/postgresql/16/main
+      - ${NOMINATIM_SETTINGS_VOLUME:-./data/nominatim/settings}:/etc/nominatim
+      - ${NOMINATIM_FLATNODE_VOLUME:-./data/nominatim/flatnode}:/nominatim/flatnode
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30m
+
+  otp-builder:
+    image: opentripplanner/opentripplanner:latest
+    container_name: schulwege-otp-builder
+    profiles: [build]
+    environment:
+      JAVA_TOOL_OPTIONS: "-Xmx8g"
+      REGION_PBF_URL: ${REGION_PBF_URL}
+      OTP_GTFS_URL: ${OTP_GTFS_URL}
+    volumes:
+      - ${OTP_DATA_VOLUME:-./data/opentripplanner}:/var/opentripplanner
+    command: ["--build", "--save"]
+    restart: "no"
+
+  otp-server:
+    image: opentripplanner/opentripplanner:latest
+    container_name: schulwege-otp-server
+    profiles: [serve]
+    environment:
+      JAVA_TOOL_OPTIONS: "-Xmx8g"
+    command: ["--load", "--serve"]
+    ports:
+      - "${OTP_HOST_PORT:-9080}:8080"
+    volumes:
+      - ${OTP_DATA_VOLUME:-./data/opentripplanner}:/var/opentripplanner
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--delete-after", "http://localhost:8080"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 1m
+
+volumes:
+  nominatim-data:
+  nominatim-settings:
+  nominatim-flatnode:
+  otp-data:
