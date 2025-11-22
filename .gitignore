@@ -1,3 +1,8 @@
+*.py[cod]
+.web
+.states
+*.db
+assets/external/
 __pycache__/
 .env/
 .vscode/
@@ -8,3 +13,6 @@ __pycache__/
 *.pyd
 data/
 cache/
+.states/
+cache/
+.devdbrc

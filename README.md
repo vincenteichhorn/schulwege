@@ -15,7 +15,15 @@
 To build the neccessary data for the application, run:
 
 ```bash
-docker compose --profile build up
+docker compose --profile build-nominatim up
+```
+
+Wait for the Nominatim data import to finish (e.g. log "[INFO] Application startup complete.") before proceeding to the next step.
+
+Then, build the OpenTripPlanner data by running:
+
+```bash
+docker compose --profile build-opentripplanner up
 ```
 
 To start all microservices, run:

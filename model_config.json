@@ -1,0 +1,23 @@
+{
+  "routing": [
+    {
+      "modality": "walk",
+      "modality_display_name": "Laufen",
+      "min_radius": 0,
+      "max_radius": 2000
+    },
+    {
+      "modality": "bicycle",
+      "modality_display_name": "Fahrrad",
+      "min_radius": 2000,
+      "max_radius": 5000
+    },
+    {
+      "modality": "public_transport_walking",
+      "modality_display_name": "ÖPNV/Laufwege",
+      "min_radius": 5000,
+      "max_radius": -1
+    }
+  ],
+  "min_segment_frequency": 10
+}
