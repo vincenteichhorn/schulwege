@@ -6,8 +6,10 @@ from schulwege.models.location import Location, new_location
 
 def get_nominatim_url() -> str:
     """Get the Nominatim API URL from environment variables."""
-    NOMINATIM_HOST = "localhost"
-    NOMINATIM_PORT = os.getenv("NOMINATIM_HOST_PORT", "8080")
+    NOMINATIM_HOST = "schulwege-nominatim" if os.getenv("DEV_MODE") == "0" else "localhost"
+    NOMINATIM_PORT = (
+        "8080" if os.getenv("DEV_MODE") == "0" else os.getenv("NOMINATIM_HOST_PORT", "8080")
+    )
     return f"http://{NOMINATIM_HOST}:{NOMINATIM_PORT}"
 
 

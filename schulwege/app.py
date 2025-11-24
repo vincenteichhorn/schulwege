@@ -1,5 +1,6 @@
 import streamlit as st
 from streamlit_router import StreamlitRouter
+from dotenv import load_dotenv
 
 from schulwege.endpoints.database import get_engine, init_db
 from schulwege.routes.home import home
@@ -19,6 +20,7 @@ def main():
 
 
 if __name__ == "__main__":
+    load_dotenv()
     engine = get_engine()
     init_db(engine)
     main()

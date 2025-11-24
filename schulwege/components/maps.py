@@ -28,24 +28,27 @@ def overlay_segments(
 
 def merge_polylines(segments: List[Segment]) -> List[Tuple[List[Tuple[float, float]], int]]:
 
-    segment_dict = defaultdict(int)
+    segment_dict = defaultdict(lambda: [0, set()])  # (frequency, set of modalities)
     for segment in segments:
         start = (segment.lat_from, segment.lon_from)
         end = (segment.lat_to, segment.lon_to)
-        segment_dict[(start, end)] += segment.frequency
+        segment_dict[(start, end)][0] += segment.frequency
+        segment_dict[(start, end)][1].add(segment.modality)
 
     overlaid_segments = [
-        (start, end, frequency) for (start, end), frequency in segment_dict.items()
+        (start, end, frequency, modalities)
+        for (start, end), (frequency, modalities) in segment_dict.items()
     ]
 
     merged_polylines = []
-    for start, end, frequency in overlaid_segments:
-        for polyline, line_frequency in merged_polylines:
+    for start, end, frequency, modalities in overlaid_segments:
+        for polyline, line_frequency, line_modalities in merged_polylines:
             if polyline[-1] == start and line_frequency == frequency:
                 polyline.append(end)
+                line_modalities.update(modalities)
                 break
         else:
-            merged_polylines.append(([start, end], frequency))
+            merged_polylines.append(([start, end], frequency, modalities))
 
     return merged_polylines
 
@@ -67,22 +70,22 @@ def segment_heatmap(segments: List[Segment], n_colors: int = 10) -> Tuple[folium
     merged_polylines = merge_polylines(segments)
     center_coordinates = get_center_coordinates(segments)
     map = folium.Map(location=center_coordinates, zoom_start=13)
-    min_freq = min(freq for _, freq in merged_polylines)
-    max_freq = max(freq for _, freq in merged_polylines)
+    min_freq = min(freq for _, freq, _ in merged_polylines)
+    max_freq = max(freq for _, freq, _ in merged_polylines)
     linear_colormap = cm.LinearColormap(
         colors=["green", "yellow", "red"],
         vmin=min_freq,
         vmax=max_freq,
     )
     step_colormap = linear_colormap.to_step(n=n_colors)
-    for polyline, frequency in merged_polylines:
+    for polyline, frequency, modalities in merged_polylines:
         color = step_colormap(frequency)
         folium.PolyLine(
             locations=polyline,
             color=color,
             weight=5,
             opacity=0.8,
-            tooltip=f"Häufigkeit: {frequency}",
+            tooltip=f"Häufigkeit: {frequency}, Modalitäten: {', '.join(modalities)}",
         ).add_to(map)
 
     return map, step_colormap._repr_html_()

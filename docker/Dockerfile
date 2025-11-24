@@ -1,7 +1,6 @@
 FROM python:3.12-slim
 
-ARG FRONTEND_PORT=5173
-ENV FRONTEND_PORT=${FRONTEND_PORT}
+ENV FRONTEND_PORT=5173
 
 WORKDIR /schulwege
 
@@ -12,14 +11,17 @@ RUN apt-get update && apt-get install -y \
     pipx \
     && rm -rf /var/lib/apt/lists/*
 
-RUN git clone https://github.com/vincenteichhorn/schulwege.git .
-
 RUN pipx install poetry
 ENV PATH="/root/.local/bin:$PATH"
-RUN poetry install
+
+COPY scripts/wait_for.sh /usr/local/bin/wait_for.sh
+RUN chmod +x /usr/local/bin/wait_for.sh
 
 EXPOSE $FRONTEND_PORT
+HEALTHCHECK CMD curl --fail http://localhost:$FRONTEND_PORT/ || exit 1
 
-HEALTHCHECK CMD curl --fail http://localhost:$FRONTEND_PORT/
-
-ENTRYPOINT schulwege
+ENTRYPOINT /bin/sh -c "\
+  wait_for.sh http://schulwege-nominatim:8080/status && \
+  wait_for.sh http://schulwege-opentripplanner:8080 && \
+  poetry install && \
+  poetry run streamlit run schulwege/app.py --server.port $FRONTEND_PORT"

@@ -129,6 +129,7 @@ def compute_public_transport_walking_route(
     progress_callback=None,
 ) -> List[List[Tuple[float, float]]]:
 
+    network = get_road_network(locations, network_type="walk")
     routes = []
     for i, loc in enumerate(locations):
         dist = haversine(main_location, loc)
@@ -157,19 +158,27 @@ def compute_public_transport_walking_route(
             routes.append([])
             continue
 
-        current_route = []
+        current_start = None
         for j in range(len(route)):
             point = route[j]
             modality = modalities[j]
             if modality == "oepnv-walk":
-                current_route.append(point)
+                if current_start is None:
+                    current_start = point
             else:
-                if len(current_route) > 0:
-                    routes.append(current_route)
-                    current_route = []
-        if len(current_route) > 0:
-            routes.append(current_route)
-
+                if current_start is not None:
+                    walking_route = ox.shortest_path(
+                        network,
+                        ox.distance.nearest_nodes(network, current_start[1], current_start[0]),
+                        ox.distance.nearest_nodes(network, point[1], point[0]),
+                        weight="length",
+                    )
+                    walking_route_coords = [
+                        (network.nodes[node]["y"], network.nodes[node]["x"])
+                        for node in walking_route
+                    ]
+                    routes.append(walking_route_coords)
+                    current_start = None
     return routes
 
 

@@ -1,5 +1,5 @@
 services:
-  nominatim:
+  schulwege-nominatim:
     image: mediagis/nominatim:5.2
     container_name: schulwege-nominatim
     profiles: [serve, build-nominatim]
@@ -20,9 +20,9 @@ services:
       retries: 5
       start_period: 30m
 
-  otp-builder:
+  schulwege-opentripplanner-builder:
     image: opentripplanner/opentripplanner:latest
-    container_name: schulwege-otp-builder
+    container_name: schulwege-opentripplanner-builder
     profiles: [build-opentripplanner]
     environment:
       JAVA_TOOL_OPTIONS: "-Xmx8g"
@@ -33,9 +33,9 @@ services:
     command: ["--build", "--save"]
     restart: "no"
 
-  otp-server:
+  schulwege-opentripplanner:
     image: opentripplanner/opentripplanner:latest
-    container_name: schulwege-otp-server
+    container_name: schulwege-opentripplanner
     profiles: [serve]
     environment:
       JAVA_TOOL_OPTIONS: "-Xmx8g"
@@ -51,6 +51,20 @@ services:
       timeout: 10s
       retries: 5
       start_period: 1m
+
+  schulwege-frontend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: schulwege-frontend
+    profiles: [serve]
+    ports:
+      - "${APP_PORT:-5173}:5173"
+    environment:
+      EXAMPLE_ENV: "value"
+    volumes:
+      - ./:/schulwege
+    restart: unless-stopped
 
 volumes:
   nominatim-data:

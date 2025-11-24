@@ -7,8 +7,8 @@ from schulwege.models.location import Location
 
 def get_open_trip_planner_url() -> str:
     """Get the OpenTripPlanner API URL from environment variables."""
-    OTP_HOST = "localhost"
-    OTP_PORT = os.getenv("OTP_HOST_PORT", "9080")
+    OTP_HOST = "schulwege-opentripplanner" if os.getenv("DEV_MODE") == "0" else "localhost"
+    OTP_PORT = "8080" if os.getenv("DEV_MODE") == "0" else os.getenv("OTP_HOST_PORT", "9080")
     return f"http://{OTP_HOST}:{OTP_PORT}/otp/gtfs/v1"
 
 
