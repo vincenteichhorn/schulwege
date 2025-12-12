@@ -11,6 +11,7 @@ def search_box(
     topN: int = 5,
     format_func: Callable[[Any], str] = None,
     key: str = "search_box",
+    show_success: bool = True,
 ) -> str:
     """
     Displays a search box for searching projects.
@@ -60,5 +61,6 @@ def search_box(
             )
         if st.session_state[f"{key}_selected"] is not None and len(option_list) > 0:
             result = option_list[st.session_state[f"{key}_selected"]]
-            st.success(f"**Ausgewählt**: {format_func(result)}")
+            if show_success:
+                st.success(f"**Ausgewählt**: {format_func(result)}")
     return result

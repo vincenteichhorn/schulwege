@@ -15,8 +15,10 @@ class Segment(Base):
     lon_to: Mapped[float]
     frequency: Mapped[int] = mapped_column(Integer, default=0)
     modality: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    direction: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    is_start: Mapped[bool] = mapped_column(Integer, default=False)
     project_id: Mapped[Optional[int]] = mapped_column(ForeignKey("projects.id"))
     project = relationship("Project", back_populates="segments")
 
     def __repr__(self):
-        return f"<Segment from=({self.lat_from}, {self.lon_from}) to=({self.lat_to}, {self.lon_to}) frequency={self.frequency}>"
+        return f"<Segment from=({self.lat_from}, {self.lon_from}) to=({self.lat_to}, {self.lon_to}) frequency={self.frequency} modality={self.modality} direction={self.direction}>"

@@ -12,7 +12,6 @@ class Project(Base):
     __tablename__ = "projects"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    name: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
 
     main_location_id: Mapped[Optional[int]] = mapped_column(
@@ -30,7 +29,7 @@ class Project(Base):
     )
 
     def get_name(self) -> str:
-        return self.name or f"Projekt {self.id}"
+        return self.main_location.name if self.main_location else f"Projekt {self.id}"
 
     def __repr__(self):
         return f"<Project created_at={self.created_at} id={self.id} name={self.name}>"

@@ -1,59 +1,128 @@
+from typing import List
 import pandas as pd
 import streamlit as st
 from streamlit_router import StreamlitRouter
+from schulwege.components.info_badges import info_badges
+from schulwege.components.maps import export_projects, segment_heatmap, segment_modality_map
 from schulwege.components.table import TableButton, table
 from schulwege.components.header import header
 from schulwege.endpoints.database import get_session
+from schulwege.endpoints.routing import merge_segments
 from schulwege.models.project import Project
+from schulwege.models.location import Location
+from schulwege.components.search_box import search_box
+from schulwege.models.segment import Segment
+from streamlit_folium import st_folium
 
 
-@st.dialog("Projekt löschen")
-def confirm_delete_project(project_id: int, session):
-    st.write(
-        "Sind Sie sicher, dass Sie dieses Projekt löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden."
+def search_schools(query: str):
+    session = get_session()
+    locations = (
+        session.query(Project)
+        .filter(
+            Project.main_location.has(
+                Project.main_location.property.mapper.class_.name.ilike(f"%{query}%")
+            )
+        )
+        .all()
     )
-    if st.button("Löschen", type="primary"):
-        session.delete(session.get(Project, project_id))
-        session.commit()
-        st.success("Projekt erfolgreich gelöscht.")
-        st.rerun()
+    return [project.main_location for project in locations]
+
+
+def get_all_projects(session) -> List[Project]:
+    projects = session.query(Project).order_by(Project.created_at.desc()).all()
+    return projects
+
+
+def get_segments(session, projects: List[Project], direction: str) -> List:
+    pids = [project.id for project in projects]
+    segments = (
+        session.query(Segment)
+        .filter(Segment.project_id.in_(pids))
+        .filter(Segment.direction == direction)
+        .all()
+    )
+    return merge_segments(segments)
 
 
 def home(router: StreamlitRouter):
 
-    header(router, "Hochfrequente Schulwege | Projektübersicht")
+    header(router, "Hochfrequentierte Schulwege")
 
-    if st.button("Neues Projekt erstellen →", type="primary"):
+    if st.sidebar.button("Neues Projekt erstellen →", type="primary"):
         router.redirect(*router.build("new"))
 
-    session = get_session()
-    projects = session.query(Project).order_by(Project.created_at.desc()).all()
+    if st.sidebar.button("Übersicht →", type="primary"):
+        router.redirect(*router.build("overview"))
 
-    df = pd.DataFrame(
-        [
-            {
-                "ID": project.id,
-                "Name": project.get_name(),
-                "Standort": project.main_location.to_string() if project.main_location else "N/A",
-                "Erstellt am": project.created_at.strftime("%d.%m.%Y %H:%M"),
-                "Segmente": len(project.segments),
-                "Projektseite": TableButton(
-                    "Projekt anzeigen",
-                    lambda _: router.redirect(*router.build("project", {"id": project.id})),
-                    key=f"project_{project.id}_view",
-                ),
-                "Löschen": TableButton(
-                    "Projekt löschen",
-                    lambda _: (confirm_delete_project(project.id, session)),
-                    key=f"project_{project.id}_delete",
-                ),
-            }
-            for project in projects
-        ]
+    session = get_session()
+
+    cols = st.columns([1, 3])
+
+    selected_projects = cols[0].multiselect(
+        "(1) Schulen auswählen",
+        options=get_all_projects(session),
+        format_func=lambda project: project.main_location.to_string(),
+        key="home_project_filter",
+        accept_new_options=False,
     )
-    if not df.empty:
-        table(df, widths=[0.5, 3, 3, 2, 1, 2, 2], header=True)
-    else:
-        st.info(
-            "Es sind noch keine Projekte vorhanden. Erstellen Sie ein neues Projekt, um zu beginnen."
+
+    maps = {
+        "Heatmap Frequenz": segment_heatmap,
+        "Modalität": segment_modality_map,
+    }
+    selected_map = cols[0].selectbox(
+        "Kartenansicht auswählen",
+        list(maps.keys()),
+    )
+
+    directions = {
+        "Hinweg": "to_school",
+        "Rückweg": "from_school",
+    }
+    selected_direction = cols[0].selectbox(
+        "Richtung auswählen",
+        list(directions.keys()),
+    )
+
+    segments = (
+        get_segments(session, selected_projects, directions[selected_direction])
+        if selected_projects
+        else []
+    )
+    info = [
+        f"{len(selected_projects)} Schulen ausgewählt",
+        f"{len(segments)} Segmente insgesamt",
+    ]
+
+    if len(segments) > 0:
+        tmp_file = export_projects(session, [project.id for project in selected_projects])
+        with open(tmp_file, "rb") as f:
+            cols[0].download_button(
+                label="Geodaten herunterladen",
+                data=f,
+                file_name="schulwege_projekte.zip",
+                mime="application/zip",
+            )
+
+    with cols[1]:
+        info_badges(info)
+
+        if len(segments) == 0:
+            st.info("Bitte wählen Sie mindestens eine Schule aus, um die Karte anzuzeigen.")
+            return
+
+        map_function = maps[selected_map]
+        map, legend_html = map_function(segments)
+        st.markdown(
+            f"""
+            <div style="font-weight: bold; margin-bottom: 8px;">{legend_html}</div>
+            """,
+            unsafe_allow_html=True,
+        )
+        st_folium(
+            map,
+            use_container_width=True,
+            height=900,
+            returned_objects=[],
         )

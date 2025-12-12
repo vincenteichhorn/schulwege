@@ -24,3 +24,16 @@ def header(router: StreamlitRouter, title: str, redirect=None):
             router.redirect(*router.build(redirect["route"], redirect["args"]))
 
     st.markdown(f"## {title}")
+
+
+def close_sidebar():
+    st.markdown(
+        """
+            <style>
+                section[data-testid="stSidebar"][aria-expanded="true"]{
+                    display: none;
+                }
+            </style>
+        """,
+        unsafe_allow_html=True,
+    )

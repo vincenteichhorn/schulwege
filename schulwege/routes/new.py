@@ -4,7 +4,7 @@ import streamlit as st
 from streamlit_router import StreamlitRouter
 
 from schulwege.components.table_upload import table_upload
-from schulwege.components.header import header
+from schulwege.components.header import close_sidebar, header
 from schulwege.components.search_box import search_box
 from schulwege.endpoints.database import get_session
 from schulwege.endpoints.nominatim import get_locations, get_top_location_batch
@@ -15,7 +15,6 @@ from schulwege.models.project import Project
 
 def create_project(
     main_location: Location,
-    project_name: Optional[str],
     address_list: List[str],
     progress_callback=None,
     force: bool = False,
@@ -51,13 +50,14 @@ def create_project(
     session.add(main_location)
     session.add_all(segments)
     project = Project(
-        name=project_name or main_location.to_string(),
         main_location=main_location,
         segments=segments,
     )
     session.add(project)
     session.commit()
-    st.success(f"Projekt '{project.name}' wurde erfolgreich erstellt!")
+    st.success(
+        f"Projekt {project.main_location.name if "'" + str(project.main_location) + "' " else " "}wurde erfolgreich erstellt!"
+    )
     if progress_callback:
         progress_callback("Fertig!")
     return project
@@ -65,6 +65,7 @@ def create_project(
 
 def new(router: StreamlitRouter):
 
+    # Custom CSS to reduce gaps between elements
     st.markdown(
         """
         <style>
@@ -75,7 +76,7 @@ def new(router: StreamlitRouter):
         """,
         unsafe_allow_html=True,
     )
-
+    close_sidebar()
     header(
         router,
         "Neues Projekt erstellen",
@@ -96,18 +97,6 @@ def new(router: StreamlitRouter):
         format_func=lambda loc: loc.to_string(),
     )
     st.session_state.form_progress = 2 if isinstance(main_location, Location) else 1
-    st.markdown("---")
-
-    project_name = st.text_input(
-        "(2) Projektname (Optional)",
-        key="project_name",
-        placeholder=(
-            main_location.to_string() if isinstance(main_location, Location) else main_location
-        ),
-        disabled=st.session_state.form_progress < 2,
-    )
-    if project_name == "":
-        project_name = None
     st.markdown("---")
 
     df_adresses = table_upload(
@@ -159,7 +148,6 @@ def new(router: StreamlitRouter):
         with st.status("Projekt wird erstellt...") as status:
             project = create_project(
                 main_location,
-                project_name,
                 agg_address_list,
                 progress_callback=lambda p: status.update(label=p, state="running", expanded=True),
                 force=force_errors,

@@ -70,18 +70,18 @@ def compute_walking_routes(
     min_radius: float,
     max_radius: float,
     progress_callback=None,
-) -> List[List[Tuple[float, float]]]:
+) -> Tuple[List[List[Tuple[float, float]]], List[bool]]:
 
     if progress_callback:
         progress_callback("Lade Straßennetz für Laufwege...")
     network = get_road_network(locations, network_type="walk")
     routes = []
+    directions = []
     origin_node = ox.distance.nearest_nodes(network, main_location.lon, main_location.lat)
 
     for i, loc in enumerate(locations):
         dist = haversine(main_location, loc)
         if dist < min_radius or dist > max_radius:
-            routes.append([])
             continue
         if progress_callback:
             progress_callback(f"Berechne Laufwege {i+1}/{len(locations)}")
@@ -89,7 +89,13 @@ def compute_walking_routes(
         route = ox.shortest_path(network, origin_node, destination_node, weight="length")
         route_coords = [(network.nodes[node]["y"], network.nodes[node]["x"]) for node in route]
         routes.append(route_coords)
-    return routes
+        directions.append(True)
+        route = ox.shortest_path(network, destination_node, origin_node, weight="length")
+        route_coords = [(network.nodes[node]["y"], network.nodes[node]["x"]) for node in route]
+        routes.append(route_coords)
+        directions.append(False)
+
+    return routes, directions
 
 
 def compute_bicycling_route(
@@ -98,17 +104,17 @@ def compute_bicycling_route(
     min_radius: float,
     max_radius: float,
     progress_callback=None,
-) -> List[List[Tuple[float, float]]]:
+) -> Tuple[List[List[Tuple[float, float]]], List[bool]]:
 
     if progress_callback:
         progress_callback("Lade Straßennetz für Fahrradwege...")
     network = get_road_network(locations, network_type="bike")
     routes = []
+    directions = []
     origin_node = ox.distance.nearest_nodes(network, main_location.lon, main_location.lat)
     for i, loc in enumerate(locations):
         dist = haversine(main_location, loc)
         if dist < min_radius or dist > max_radius:
-            routes.append([])
             continue
         if progress_callback:
             progress_callback(f"Berechne Fahrradwege {i+1}/{len(locations)}")
@@ -116,48 +122,29 @@ def compute_bicycling_route(
         route = ox.shortest_path(network, origin_node, destination_node, weight="length")
         route_coords = [(network.nodes[node]["y"], network.nodes[node]["x"]) for node in route]
         routes.append(route_coords)
-    return routes
+        directions.append(True)
+        route = ox.shortest_path(network, destination_node, origin_node, weight="length")
+        route_coords = [(network.nodes[node]["y"], network.nodes[node]["x"]) for node in route]
+        routes.append(route_coords)
+        directions.append(False)
+    return routes, directions
 
 
 def compute_public_transport_walking_route(
     main_location: Location,
     locations: List[Location],
     date: str,
-    time: str,
+    to_school_time: str,
+    from_school_time: str,
     min_radius: float,
     max_radius: float,
     progress_callback=None,
-) -> List[List[Tuple[float, float]]]:
+) -> Tuple[List[List[Tuple[float, float]]], List[bool]]:
 
-    network = get_road_network(locations, network_type="walk")
-    routes = []
-    for i, loc in enumerate(locations):
-        dist = haversine(main_location, loc)
-        if dist < min_radius or dist > max_radius:
-            routes.append([])
-            continue
-        if progress_callback:
-            progress_callback(f"Berechne ÖPNV-Wege {i+1}/{len(locations)}")
-        route, modalities = get_public_transport_route(
-            origin=main_location,
-            destination=loc,
-            date=date,
-            time=time,
-            transport_modes=[
-                "BUS",
-                "TRAM",
-                "RAIL",
-                "SUBWAY",
-                "FERRY",
-                "GONDOLA",
-                "FUNICULAR",
-                "WALK",
-            ],
-        )
-        if len(route) == 0:
-            routes.append([])
-            continue
-
+    def extract_walking_routes(
+        route: List[Tuple[float, float]], modalities: List[str]
+    ) -> List[List[Tuple[float, float]]]:
+        routes = []
         current_start = None
         for j in range(len(route)):
             point = route[j]
@@ -165,7 +152,7 @@ def compute_public_transport_walking_route(
             if modality == "oepnv-walk":
                 if current_start is None:
                     current_start = point
-            else:
+            else:  # if we are nto on walking segment, compute the pending walking route
                 if current_start is not None:
                     walking_route = ox.shortest_path(
                         network,
@@ -179,7 +166,60 @@ def compute_public_transport_walking_route(
                     ]
                     routes.append(walking_route_coords)
                     current_start = None
-    return routes
+        return routes
+
+    network = get_road_network(locations, network_type="walk")
+    routes = []
+    directions = []
+    for i, loc in enumerate(locations):
+        dist = haversine(main_location, loc)
+        if dist < min_radius or dist > max_radius:
+            continue
+        if progress_callback:
+            progress_callback(f"Berechne ÖPNV-Wege {i+1}/{len(locations)}")
+        route, modalities = get_public_transport_route(
+            origin=main_location,
+            destination=loc,
+            date=date,
+            time=to_school_time,
+            transport_modes=[
+                "BUS",
+                "TRAM",
+                "RAIL",
+                "SUBWAY",
+                "FERRY",
+                "GONDOLA",
+                "FUNICULAR",
+                "WALK",
+            ],
+        )
+        if len(route) != 0:
+            walking_routes = extract_walking_routes(route, modalities)
+            routes.extend(walking_routes)
+            directions.extend([True] * len(walking_routes))
+
+        route, modalities = get_public_transport_route(
+            origin=loc,
+            destination=main_location,
+            date=date,
+            time=from_school_time,
+            transport_modes=[
+                "BUS",
+                "TRAM",
+                "RAIL",
+                "SUBWAY",
+                "FERRY",
+                "GONDOLA",
+                "FUNICULAR",
+                "WALK",
+            ],
+        )
+        if len(route) != 0:
+            walking_routes = extract_walking_routes(route, modalities)
+            routes.extend(walking_routes)
+            directions.extend([False] * len(walking_routes))
+
+    return routes, directions
 
 
 def compute_school_routes(
@@ -192,15 +232,18 @@ def compute_school_routes(
     routing_config = model_config.get("routing", [])
     routes = []
     route_modalities = []
+    directions = []
     for i, route_cfg in enumerate(routing_config):
         modality = route_cfg.get("modality")
         modality_display_name = route_cfg.get("modality_display_name", modality)
         min_radius = route_cfg.get("min_radius", 0)
         max_radius = route_cfg.get("max_radius", -1)
+
         if max_radius == -1:
             max_radius = float("inf")
+
         if modality == "walk":
-            walking_routes = compute_walking_routes(
+            walking_routes, walking_directions = compute_walking_routes(
                 main_location,
                 locations,
                 min_radius,
@@ -213,8 +256,9 @@ def compute_school_routes(
             )
             routes.extend(walking_routes)
             route_modalities.extend([modality_display_name] * len(walking_routes))
+            directions.extend(walking_directions)
         elif modality == "bicycle":
-            bike_routes = compute_bicycling_route(
+            bike_routes, bike_directions = compute_bicycling_route(
                 main_location,
                 locations,
                 min_radius,
@@ -227,31 +271,37 @@ def compute_school_routes(
             )
             routes.extend(bike_routes)
             route_modalities.extend([modality_display_name] * len(bike_routes))
+            directions.extend(bike_directions)
         elif modality == "public_transport_walking":
             now = datetime.now()
             monday = now - timedelta(days=now.weekday())
             now = monday.replace(hour=7, minute=0, second=0, microsecond=0)
             date_str = monday.strftime("%Y-%m-%d")
-            time_str = monday.strftime("%H:%M")
+            to_school_time_str = monday.strftime("%H:%M")
+            from_school_time_str = (monday + timedelta(hours=8)).strftime("%H:%M")
 
-            public_transport_walking_routes = compute_public_transport_walking_route(
-                main_location,
-                locations,
-                date_str,
-                time_str,
-                min_radius,
-                max_radius,
-                progress_callback=lambda p: (
-                    progress_callback(f"[{i+1}/{len(routing_config)}] {p}")
-                    if progress_callback
-                    else None
-                ),
+            public_transport_walking_routes, public_transport_walking_directions = (
+                compute_public_transport_walking_route(
+                    main_location,
+                    locations,
+                    date_str,
+                    to_school_time_str,
+                    from_school_time_str,
+                    min_radius,
+                    max_radius,
+                    progress_callback=lambda p: (
+                        progress_callback(f"[{i+1}/{len(routing_config)}] {p}")
+                        if progress_callback
+                        else None
+                    ),
+                )
             )
             routes.extend(public_transport_walking_routes)
             route_modalities.extend([modality_display_name] * len(public_transport_walking_routes))
+            directions.extend(public_transport_walking_directions)
         else:
             st.warning(f"Unbekannte Routing-Modality: {modality}")
-    return routes, route_modalities
+    return routes, route_modalities, directions
 
 
 def round_route_coordinates(
@@ -260,20 +310,50 @@ def round_route_coordinates(
     return [(round(lat, precision), round(lon, precision)) for lat, lon in route]
 
 
+def merge_segments(segments: List[Segment]) -> List[Segment]:
+    segment_dict = {}
+    for segment in segments:
+        key = (
+            segment.lat_from,
+            segment.lon_from,
+            segment.lat_to,
+            segment.lon_to,
+            segment.modality,
+            segment.direction,
+        )
+        if key in segment_dict:
+            segment_dict[key].frequency += segment.frequency
+        else:
+            segment_dict[key] = Segment(
+                lat_from=segment.lat_from,
+                lon_from=segment.lon_from,
+                lat_to=segment.lat_to,
+                lon_to=segment.lon_to,
+                modality=segment.modality,
+                frequency=segment.frequency,
+                direction=segment.direction,
+                is_start=segment.is_start,
+            )
+    return list(segment_dict.values())
+
+
 def compute_segments(main_location: Location, locations: List[Location], progress_callback=None):
 
-    routes, route_modalities = compute_school_routes(
+    location_coords = [(loc.lat, loc.lon) for loc in locations if loc.coordinates is not None]
+    rounded_location_coords = set(round_route_coordinates(location_coords))
+
+    routes, route_modalities, directions = compute_school_routes(
         main_location,
         locations,
         progress_callback=progress_callback,
     )
 
     model_config = load_model_config()
-    min_frequency = model_config.get("min_segment_frequency", 1)
+    min_frequency = model_config.get("min_segment_frequency", 0)
     counter = Counter()
     if progress_callback:
         progress_callback("Berechne Routensegmente...")
-    for i, (route, modality) in enumerate(zip(routes, route_modalities)):
+    for i, (route, modality, direction) in enumerate(zip(routes, route_modalities, directions)):
         if progress_callback:
             progress_callback(f"Berechne Routensegmente {i+1}/{len(routes)}...")
         if len(route) == 0:
@@ -281,7 +361,7 @@ def compute_segments(main_location: Location, locations: List[Location], progres
         rounded_route = tuple(round_route_coordinates(route))
         start = rounded_route[0]
         for end in rounded_route[1:]:
-            segment_key = (start, end, modality)
+            segment_key = (start, end, modality, direction)
             counter[segment_key] += 1
             start = end
     segments = [
@@ -292,8 +372,10 @@ def compute_segments(main_location: Location, locations: List[Location], progres
             lon_to=end[1],
             modality=modality,
             frequency=count,
+            direction="to_school" if direction else "from_school",
+            is_start=(start in rounded_location_coords),
         )
-        for (start, end, modality), count in counter.items()
+        for (start, end, modality, direction), count in counter.items()
         if count >= min_frequency
     ]
     return segments

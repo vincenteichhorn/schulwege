@@ -5,7 +5,7 @@ from streamlit_folium import st_folium
 from schulwege.components.header import header
 from schulwege.components.info_badges import info_badges
 from schulwege.components.maps import (
-    export_project,
+    export_projects,
     segment_heatmap,
     segment_modality_map,
 )
@@ -42,13 +42,23 @@ def project(router: StreamlitRouter, id: int):
         "Heatmap Frequenz": segment_heatmap,
         "Modalität": segment_modality_map,
     }
+    directions = {
+        "Hinweg": "to_school",
+        "Rückweg": "from_school",
+    }
 
     with cols[0]:
         selected_map = st.selectbox(
             "Kartenansicht auswählen",
             list(maps.keys()),
         )
-        tmp_file = export_project(project)
+
+        selected_direction = st.selectbox(
+            "Richtung auswählen",
+            list(directions.keys()),
+        )
+
+        tmp_file = export_projects(session, [project.id])
         with open(tmp_file, "rb") as f:
             st.download_button(
                 label="Download Projektdaten",
@@ -59,7 +69,10 @@ def project(router: StreamlitRouter, id: int):
 
     with cols[1]:
         map_function = maps[selected_map]
-        map, legend_html = map_function(project.segments)
+        segments = [
+            seg for seg in project.segments if seg.direction == directions[selected_direction]
+        ]
+        map, legend_html = map_function(segments)
         st.markdown(
             f"""
             <div style="font-weight: bold; margin-bottom: 8px;">{legend_html}</div>

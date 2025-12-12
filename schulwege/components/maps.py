@@ -144,7 +144,7 @@ def add_model_config_hints(map: folium.Map, project: Project, model_config: dict
     return map
 
 
-def export_project(project: Project) -> str:
+def export_projects(session, project_ids: List[int]) -> str:
     """Export project data to a temporary ZIP file and return the file path.
     In the ZIP file, include a CSV file with segment data and a JSON file with project metadata.
     """
@@ -157,52 +157,64 @@ def export_project(project: Project) -> str:
     temp_dir = tempfile.mkdtemp()
     csv_file_path = os.path.join(temp_dir, "segments.csv")
     json_file_path = os.path.join(temp_dir, "project_metadata.json")
-    zip_file_path = os.path.join(temp_dir, f"project_{project.id}.zip")
+    zip_file_path = os.path.join(temp_dir, f"projects.zip")
+
+    projects = session.query(Project).filter(Project.id.in_(project_ids)).all()
+
+    segments = []
+    for project in projects:
+        segments.extend(project.segments)
 
     # Write segments to CSV
     with open(csv_file_path, mode="w", newline="", encoding="utf-8") as csv_file:
         fieldnames = [
             "id",
+            "school_id",
             "lat_from",
             "lon_from",
             "lat_to",
             "lon_to",
             "modality",
+            "direction",
             "frequency",
         ]
         writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
         writer.writeheader()
-        for segment in project.segments:
+        for segment in segments:
             writer.writerow(
                 {
                     "id": segment.id,
+                    "school_id": segment.project_id,
                     "lat_from": segment.lat_from,
                     "lon_from": segment.lon_from,
                     "lat_to": segment.lat_to,
                     "lon_to": segment.lon_to,
                     "modality": segment.modality,
+                    "direction": segment.direction,
                     "frequency": segment.frequency,
                 }
             )
 
     # Write project metadata to JSON
-    project_metadata = {
-        "id": project.id,
-        "name": project.name,
-        "created_at": project.created_at.isoformat(),
-        "main_location": {
-            "id": project.main_location.id,
-            "name": project.main_location.name,
-            "lat": project.main_location.lat,
-            "lon": project.main_location.lon,
-        },
-    }
+    projects_metadata = [
+        {
+            "id": project.id,
+            "created_at": project.created_at.isoformat(),
+            "main_location": {
+                "id": project.main_location.id,
+                "name": project.main_location.name,
+                "lat": project.main_location.lat,
+                "lon": project.main_location.lon,
+            },
+        }
+        for project in projects
+    ]
     with open(json_file_path, mode="w", encoding="utf-8") as json_file:
-        json.dump(project_metadata, json_file, indent=4)
+        json.dump(projects_metadata, json_file, indent=4)
 
     # Create ZIP file
     with zipfile.ZipFile(zip_file_path, mode="w") as zipf:
         zipf.write(csv_file_path, arcname="segments.csv")
-        zipf.write(json_file_path, arcname="project_metadata.json")
+        zipf.write(json_file_path, arcname="projects_metadata.json")
 
     return zip_file_path
