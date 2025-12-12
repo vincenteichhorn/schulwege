@@ -59,6 +59,9 @@ def home(router: StreamlitRouter):
 
     cols = st.columns([1, 3])
 
+    if "form_progress" not in st.session_state:
+        st.session_state.form_progress = 1
+
     selected_projects = cols[0].multiselect(
         "(1) Schulen auswählen",
         options=get_all_projects(session),
@@ -66,14 +69,16 @@ def home(router: StreamlitRouter):
         key="home_project_filter",
         accept_new_options=False,
     )
+    st.session_state.form_progress = 2 if selected_projects else 1
 
     maps = {
         "Heatmap Frequenz": segment_heatmap,
         "Modalität": segment_modality_map,
     }
     selected_map = cols[0].selectbox(
-        "Kartenansicht auswählen",
+        "(2) Kartenansicht auswählen",
         list(maps.keys()),
+        disabled=st.session_state.form_progress < 2,
     )
 
     directions = {
@@ -81,8 +86,9 @@ def home(router: StreamlitRouter):
         "Rückweg": "from_school",
     }
     selected_direction = cols[0].selectbox(
-        "Richtung auswählen",
+        "(3) Richtung auswählen",
         list(directions.keys()),
+        disabled=st.session_state.form_progress < 2,
     )
 
     segments = (
@@ -94,6 +100,9 @@ def home(router: StreamlitRouter):
         f"{len(selected_projects)} Schulen ausgewählt",
         f"{len(segments)} Segmente insgesamt",
     ]
+    with cols[0]:
+        info_badges(info)
+        st.markdown("---")
 
     if len(segments) > 0:
         tmp_file = export_projects(session, [project.id for project in selected_projects])
@@ -106,7 +115,6 @@ def home(router: StreamlitRouter):
             )
 
     with cols[1]:
-        info_badges(info)
 
         if len(segments) == 0:
             st.info("Bitte wählen Sie mindestens eine Schule aus, um die Karte anzuzeigen.")
