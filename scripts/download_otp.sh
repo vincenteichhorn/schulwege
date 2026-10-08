@@ -1,13 +1,21 @@
 #!/usr/bin/env bash
 
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-if [ -f $SCRIPT_DIR/../.env ]; then
-    export $(grep -v '^#' $SCRIPT_DIR/../.env | xargs)
+PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+if [ -f "$PROJECT_DIR/.env" ]; then
+    set -a
+    # shellcheck disable=SC1091
+    source "$PROJECT_DIR/.env"
+    set +a
 fi
 
+OTP_DATA_DIR="${OTP_DATA_DIR:-$PROJECT_DIR/data/opentripplanner}"
+REGION_PBF_URL="${REGION_PBF_URL:?REGION_PBF_URL must be set}"
+OTP_GTFS_URL="${OTP_GTFS_URL:?OTP_GTFS_URL must be set}"
+
 mkdir -p "$OTP_DATA_DIR"
-chmod -R 777 "$OTP_DATA_DIR"
 OSM_FILE="$OTP_DATA_DIR/osm.pbf"
 GTFS_FILE="$OTP_DATA_DIR/gtfs.zip"
 

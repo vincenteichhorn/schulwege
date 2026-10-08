@@ -1,3 +1,4 @@
 data/nominatim/
 .git
 __pycache__/
+data/opentripplanner/

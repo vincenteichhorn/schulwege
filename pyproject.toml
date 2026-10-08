@@ -25,12 +25,15 @@ dependencies = [
     "streamlit-folium (>=0.25.3,<0.26.0)",
 ]
 
-[tool.poetry.scripts]
-schulwege = "schulwege.schulwege:main"
+[tool.poetry]
+packages = [{include = "schulwege", from = "src"}]
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
+
+[project.scripts]
+schulwege = "schulwege.app:main"
 
 [dependency-groups]
 dev = [

@@ -30,7 +30,24 @@ services:
       OTP_GTFS_URL: ${OTP_GTFS_URL}
     volumes:
       - ${OTP_DATA_VOLUME:-./data/opentripplanner}:/var/opentripplanner
+    depends_on:
+      schulwege-opentripplanner-downloader:
+        condition: service_completed_successfully
     command: ["--build", "--save"]
+    restart: "no"
+
+  schulwege-opentripplanner-downloader:
+    image: alpine:3.22
+    container_name: schulwege-opentripplanner-downloader
+    profiles: [build-opentripplanner]
+    environment:
+      OTP_DATA_DIR: /var/opentripplanner
+      REGION_PBF_URL: ${REGION_PBF_URL:-https://download.geofabrik.de/europe/germany/brandenburg-latest.osm.pbf}
+      OTP_GTFS_URL: ${OTP_GTFS_URL:-https://vbb.de/vbbgtfs}
+    volumes:
+      - ${OTP_DATA_VOLUME:-./data/opentripplanner}:/var/opentripplanner
+      - ./scripts/download_otp.sh:/usr/local/bin/download_otp.sh:ro
+    command: ["sh", "-c", "apk add --no-cache bash wget && bash /usr/local/bin/download_otp.sh"]
     restart: "no"
 
   schulwege-opentripplanner:
@@ -61,7 +78,9 @@ services:
     ports:
       - "${APP_PORT:-5173}:5173"
     environment:
-      EXAMPLE_ENV: "value"
+      DEV_MODE: "0"
+      SQL_DATABASE_URL: ${SQL_DATABASE_URL:-sqlite:///data/schulwege/schulwege.db}
+      MODEL_CONFIG_FILE: ${MODEL_CONFIG_FILE:-./model_config.json}
     volumes:
       - ./:/schulwege
     restart: unless-stopped

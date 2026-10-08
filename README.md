@@ -1,67 +1,93 @@
 # Schulwege
 
-## Start Application
+Schulwege is a Streamlit application that uses Nominatim for geocoding and
+OpenTripPlanner (OTP) for public-transport routing. Docker Compose runs the
+two supporting services and, optionally, the Streamlit frontend.
 
-To start the application, clone the repository and navigate into the project directory. You need to have Docker and Docker Compose installed on your machine. The installation normally needs at minimum 45min, depending on your internet connection and hardware performance.
+## Requirements
+
+- Docker with the Compose plugin
+- Poetry (development mode only)
+- At least 8 GB of memory for the OTP build
+
+## First-time setup
+
+Clone the repository and create the environment file:
 
 ```bash
 git clone https://github.com/vincenteichhorn/schulwege.git
 cd schulwege
-```
-
-### Create Environment File
-
-```bash
 cp .env.example .env
 ```
 
-Edit the `.env` file to set your desired configuration. You do not need to change anything if you are fine with the default settings. 
-However, you should choose the `REGION_PBF_URL` that fits your area. For example, for Brandenburg, Germany, you can use:
+Review `.env`, especially `REGION_PBF_URL` and `OTP_GTFS_URL`. The defaults
+use Brandenburg, Germany and the VBB GTFS feed.
 
-```bash
-REGION_PBF_URL=https://download.geofabrik.de/europe/germany/brandenburg-latest.osm.pbf
-```
-
-Set `DEV_MODE=1` if you want to run the application in development mode (optional).
-
-### Download Data
-
-```bash
-./scripts/download_schools.sh
-./scripts/download_ufa.sh
-./scripts/download_otp.sh
-```
-
-### Build and Start Containers
-
-To build the neccessary data for the application, run:
+The following two commands are one-time data imports. They can take a long
+time and only need to be repeated when the region or data source changes:
 
 ```bash
 docker compose --profile build-nominatim up
+docker compose --profile build-opentripplanner up \
+  --abort-on-container-exit \
+  --exit-code-from schulwege-opentripplanner-builder
 ```
 
-Wait for the Nominatim data import to finish (e.g. log "[INFO] Application startup complete.") before proceeding to the next step.
+For the Nominatim command, wait until the import has completed and then
+press `Ctrl+C`; its service stays available for later starts.
 
-Then, build the OpenTripPlanner data by running:
+The OTP build profile downloads the OSM PBF and GTFS files into
+`data/opentripplanner` before running the builder. Existing files are reused,
+so subsequent builds do not download them again.
+
+## Start the application
+
+After the initial data imports, start the complete application with one
+command:
 
 ```bash
-docker compose --profile build-opentripplanner up
+./scripts/start.sh
 ```
 
-To start all microservices, including the app:
+This builds the frontend image if needed and starts Nominatim, OTP, and
+Streamlit. Open <http://localhost:5173>. Stop it with `Ctrl+C`.
 
-```bash
-docker compose --profile serve up
-```
+## Development mode
 
-After the containers are started, you can access the frontend at `http://localhost:5173` (or the port you specified in the `.env` file).
-
-## Setup Development Environment (Optional)
-
-Start the containers as described above, but do not start the profile "app". Then, install the dependencies and activate the virtual environment:
+Development mode runs Streamlit locally while Nominatim and OTP remain in
+Docker. Install the Python dependencies once:
 
 ```bash
 poetry install
-source $(poetry env info --path)/bin/activate
-schulwege
 ```
+
+Then start the supporting services and Streamlit with:
+
+```bash
+./scripts/start.sh dev
+```
+
+Open <http://localhost:5173>. The script stops the supporting containers when
+Streamlit exits. Development mode uses the host ports configured in `.env`;
+the normal container mode uses the Compose service names and internal ports.
+
+## Configuration
+
+All supported settings are documented in `.env.example`. The most relevant
+ones are:
+
+- `REGION_PBF_URL`: OSM extract used by Nominatim and OTP
+- `OTP_GTFS_URL`: GTFS feed used by OTP
+- `NOMINATIM_HOST_PORT`: host port for local Nominatim access
+- `OTP_HOST_PORT`: host port for local OTP access
+- `APP_PORT`: host port for Streamlit
+
+To rebuild either imported dataset, stop the services and remove only the
+corresponding directory under `data/`, then run its build profile again.
+
+## Example address data
+
+The file [`examples/babelsberg_adressen.csv`](examples/babelsberg_adressen.csv)
+contains 50 example addresses around Babelsberg and the Stern district near
+Schulzentrum am Stern. Upload it on the “Neues Projekt erstellen” page and
+select the `address` column.

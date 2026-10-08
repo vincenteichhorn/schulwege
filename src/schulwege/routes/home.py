@@ -47,13 +47,21 @@ def get_segments(session, projects: List[Project], direction: str) -> List:
 
 def home(router: StreamlitRouter):
 
-    header(router, "Hochfrequentierte Schulwege")
+    header(router, "Hochfrequentierte Schulwege", subtitle="Die Gesamtkarte der Schulwege aggregiert die Wege aus allen Projekten.")
 
-    if st.sidebar.button("Neues Projekt erstellen →", type="primary"):
-        router.redirect(*router.build("new"))
+    st.sidebar.markdown(
+        """
+        <div style="font-size: 1.2rem; font-weight: bold; margin-bottom: 8px;">Aktionen</div>
+        """,
+        unsafe_allow_html=True,
+    )
 
-    if st.sidebar.button("Übersicht →", type="primary"):
+
+    if st.sidebar.button("Projektübersicht →", type="primary", help="Zeigt eine Übersicht aller Projekte an, in denen Schulwege für Schulen anhand der Adressen der Schüler:innen berechnet wurden."):
         router.redirect(*router.build("overview"))
+
+    if st.sidebar.button("Neues Projekt erstellen →", type="secondary", help="Erstellt ein neues Projekt, in dem Schulwege für eine Schule anhand der Adressen der Schüler:innen berechnet werden."):
+        router.redirect(*router.build("new"))
 
     session = get_session()
 
@@ -62,9 +70,11 @@ def home(router: StreamlitRouter):
     if "form_progress" not in st.session_state:
         st.session_state.form_progress = 1
 
+    all_projects = get_all_projects(session)
     selected_projects = cols[0].multiselect(
         "(1) Schulen auswählen",
-        options=get_all_projects(session),
+        options=all_projects,
+        default=[all_projects[0]] if all_projects else [],
         format_func=lambda project: project.main_location.to_string(),
         key="home_project_filter",
         accept_new_options=False,

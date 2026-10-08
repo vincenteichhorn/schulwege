@@ -3,7 +3,7 @@ from streamlit_router import StreamlitRouter
 
 
 @st.fragment
-def header(router: StreamlitRouter, title: str, redirect=None):
+def header(router: StreamlitRouter, title: str, subtitle: str = "", redirect=None):
     """
     Displays a header with an optional redirect button.
     Args:
@@ -24,6 +24,7 @@ def header(router: StreamlitRouter, title: str, redirect=None):
             router.redirect(*router.build(redirect["route"], redirect["args"]))
 
     st.markdown(f"## {title}")
+    st.markdown(f"{subtitle}" if subtitle else "")
 
 
 def close_sidebar():
