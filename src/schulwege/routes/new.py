@@ -95,6 +95,7 @@ def new(router: StreamlitRouter):
         search_callback=lambda x: get_locations(x, limit=5),
         topN=5,
         format_func=lambda loc: loc.to_string(),
+        help="Geben Sie den Namen der Schule ein, für die Sie ein neues Projekt erstellen möchten. Wählen Sie die gewünschte Schule aus den Suchergebnissen aus.",
     )
     st.session_state.form_progress = 2 if isinstance(main_location, Location) else 1
     st.markdown("---")
@@ -103,6 +104,7 @@ def new(router: StreamlitRouter):
         "(3) Adressliste hochladen",
         show_table=True,
         disabled=st.session_state.form_progress < 2,
+        help="Lade eine CSV- oder Excel-Datei hoch, die die Adressen der Schüler:innen enthält. Die Datei sollte mindestens eine Spalte mit den Adressen enthalten. Nach dem Hochladen wird eine Vorschau der Adressen angezeigt.",
     )
     st.markdown("---")
 
@@ -117,6 +119,7 @@ def new(router: StreamlitRouter):
         ),
         key="address_column",
         disabled=st.session_state.form_progress < 3,
+        help="Wählen Sie die Spalte(n) aus, die die Adressen der Schüler:innen enthalten. Wenn die Adressen in mehreren Spalten verteilt sind (z.B. Straße, Hausnummer, Postleitzahl), wählen Sie alle relevanten Spalten in der richtigen Reihenfolge aus. Die ausgewählten Spalten werden zu einer vollständigen Adresse zusammengefügt.",
     )
     if selected_columns:
         example_addresses = (
@@ -144,7 +147,10 @@ def new(router: StreamlitRouter):
         disabled=st.session_state.form_progress < 4,
     )
 
-    if st.session_state.form_progress >= 4 and st.button("Projekt erstellen"):
+    if (
+        st.button("Projekt erstellen", disabled=st.session_state.form_progress < 4)
+        and st.session_state.form_progress >= 4
+    ):
         with st.status("Projekt wird erstellt...") as status:
             project = create_project(
                 main_location,

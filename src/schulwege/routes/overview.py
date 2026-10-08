@@ -24,6 +24,7 @@ def overview(router: StreamlitRouter):
     header(
         router,
         "Schulübersicht",
+        subtitle="Hier finden Sie eine Übersicht aller Projekte, in denen Schulwege für Schulen anhand der Adressen der Schüler:innen berechnet wurden.",
         redirect={
             "route": "home",
             "args": {},

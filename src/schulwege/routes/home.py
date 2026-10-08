@@ -47,7 +47,11 @@ def get_segments(session, projects: List[Project], direction: str) -> List:
 
 def home(router: StreamlitRouter):
 
-    header(router, "Hochfrequentierte Schulwege", subtitle="Die Gesamtkarte der Schulwege aggregiert die Wege aus allen Projekten.")
+    header(
+        router,
+        "Hochfrequentierte Schulwege",
+        subtitle="Die Gesamtkarte der Schulwege aggregiert die Wege aus allen Projekten.",
+    )
 
     st.sidebar.markdown(
         """
@@ -56,11 +60,13 @@ def home(router: StreamlitRouter):
         unsafe_allow_html=True,
     )
 
-
-    if st.sidebar.button("Projektübersicht →", type="primary", help="Zeigt eine Übersicht aller Projekte an, in denen Schulwege für Schulen anhand der Adressen der Schüler:innen berechnet wurden."):
+    if st.sidebar.button(
+        "Projektübersicht →",
+        type="primary",
+    ):
         router.redirect(*router.build("overview"))
 
-    if st.sidebar.button("Neues Projekt erstellen →", type="secondary", help="Erstellt ein neues Projekt, in dem Schulwege für eine Schule anhand der Adressen der Schüler:innen berechnet werden."):
+    if st.sidebar.button("Neues Projekt erstellen →", type="secondary"):
         router.redirect(*router.build("new"))
 
     session = get_session()
@@ -78,6 +84,7 @@ def home(router: StreamlitRouter):
         format_func=lambda project: project.main_location.to_string(),
         key="home_project_filter",
         accept_new_options=False,
+        help="Wähle eine oder mehrere Schulen aus, um die Schulwege auf der Karte anzuzeigen. Die Karte zeigt die aggregierten Schulwege für die ausgewählten Schulen an.",
     )
     st.session_state.form_progress = 2 if selected_projects else 1
 
@@ -89,6 +96,7 @@ def home(router: StreamlitRouter):
         "(2) Kartenansicht auswählen",
         list(maps.keys()),
         disabled=st.session_state.form_progress < 2,
+        help="Wähle die gewünschte Kartenansicht aus, um die Schulwege auf der Karte anzuzeigen. Die Heatmap zeigt die Häufigkeit der Schulwege an, während die Modalitätskarte die Art der Fortbewegung (z.B. zu Fuß, Fahrrad, Auto) darstellt.",
     )
 
     directions = {
@@ -99,6 +107,7 @@ def home(router: StreamlitRouter):
         "(3) Richtung auswählen",
         list(directions.keys()),
         disabled=st.session_state.form_progress < 2,
+        help="Wähle die Richtung der Schulwege aus, die auf der Karte angezeigt werden sollen. Der Hinweg zeigt die Wege von den Wohnorten der Schüler:innen zur Schule, während der Rückweg die Wege von der Schule zurück zu den Wohnorten darstellt.",
     )
 
     segments = (
@@ -122,12 +131,13 @@ def home(router: StreamlitRouter):
                 data=f,
                 file_name="schulwege_projekte.zip",
                 mime="application/zip",
+                help="Lade die Geodaten der ausgewählten Projekte als ZIP-Datei herunter. Die ZIP-Datei enthält die Geodaten der Schulwege in den Formaten GeoJSON und Shapefile, die in GIS-Software oder Kartenanwendungen verwendet werden können.",
             )
 
     with cols[1]:
 
         if len(segments) == 0:
-            st.info("Bitte wählen Sie mindestens eine Schule aus, um die Karte anzuzeigen.")
+            st.info("Bitte wähle mindestens eine Schule aus, um die Karte anzuzeigen.")
             return
 
         map_function = maps[selected_map]

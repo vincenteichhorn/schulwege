@@ -2,9 +2,11 @@ import pandas as pd
 import streamlit as st
 
 
-def table_upload(label: str, show_table: bool = False, disabled: bool = False) -> pd.DataFrame:
+def table_upload(
+    label: str, show_table: bool = False, disabled: bool = False, help: str = ""
+) -> pd.DataFrame:
     uploaded_file = st.file_uploader(label=label, type=["csv", "xlsx"], disabled=disabled)
-
+    st.markdown(help)
     if uploaded_file is not None:
         try:
             df = (

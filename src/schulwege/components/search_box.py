@@ -12,6 +12,7 @@ def search_box(
     format_func: Callable[[Any], str] = None,
     key: str = "search_box",
     show_success: bool = True,
+    help: str = "",
 ) -> str:
     """
     Displays a search box for searching projects.
@@ -41,6 +42,7 @@ def search_box(
         key="search_box_input",
         debounce=100,
     )
+    st.markdown(help)
     result = search_input
     if len(search_input) >= 3:
         search_results = search_callback(search_input)
