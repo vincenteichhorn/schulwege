@@ -4,7 +4,7 @@
 *.db
 assets/external/
 __pycache__/
-.env/
+.env
 .vscode/
 .idea/
 .DS_Store
